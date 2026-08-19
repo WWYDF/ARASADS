@@ -3,10 +3,10 @@ import '@fastify/jwt';
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: {
-      id: number;
+      id: string;
     };
     user: {
-      id: number;
+      id: string;
     };
   }
 }

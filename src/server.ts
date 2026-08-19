@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { LogController } from 'fastify';
 import routeLogger from './plugins/logger';
 import prismaPlugin from './plugins/prisma';
 import registerStatic from './plugins/static';
@@ -25,7 +25,9 @@ const fastify = Fastify({
       }
     },
   },
-  disableRequestLogging: true,
+  logController: new LogController({
+    disableRequestLogging: true
+  })
 });
 
 const start = async () => {
@@ -55,13 +57,12 @@ const start = async () => {
       async function (request, reply) {
         try {
           await request.jwtVerify();
-          const entry = await fastify.prisma.userAccessToken.findUnique({
+          const entry = await fastify.prisma.user.findUnique({
             where: { id: request.user.id },
-            select: { id: true, name: true, owner: true, tier: true, active: true },
+            select: { id: true, username: true },
           });
 
-          if (!entry || !entry.active) throw new Error('No entry');
-          if (!request.user) throw new Error('No token');
+          if (!entry) throw new Error('No entry');
 
           request.entry = entry;
         } catch (e) {

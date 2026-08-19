@@ -11,7 +11,11 @@ declare module 'fastify' {
 
   interface FastifyRequest {
     user?: {
-      id: number;
+      id: string;
+    };
+    entry?: {
+      id: string;
+      username: string;
     };
   }
 }
