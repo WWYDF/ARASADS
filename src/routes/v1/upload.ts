@@ -5,14 +5,16 @@ import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import type { MediaType } from '../../../prisma/client';
+import { isImageMimeType, optimizeImage } from '../../core/images';
+import { isVideoMimeType } from '../../core/videos';
 
 const UPLOAD_ROOT = path.resolve(process.cwd(), 'data/uploads');
 const TMP_DIR = path.resolve(process.cwd(), 'data/tmp');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_MB || 200) * 1024 * 1024;
 
 function mediaTypeFor(mimeType: string, extension: string): MediaType | null {
-  if (mimeType.startsWith('image/')) return 'IMAGE';
-  if (mimeType.startsWith('video/')) return 'VIDEO';
+  if (isImageMimeType(mimeType)) return 'IMAGE';
+  if (isVideoMimeType(mimeType)) return 'VIDEO';
   if (mimeType === 'text/markdown' || extension === 'md' || extension === 'markdown') return 'MARKDOWN';
   if (mimeType.startsWith('text/')) return 'TEXT';
   return null;
@@ -32,7 +34,8 @@ const upload: FastifyPluginAsync = async (fastify) => {
     done(null, payload);
   });
 
-  fastify.post('/', { preHandler: fastify.authenticate }, async (req, reply) => {
+  fastify.post<{ Querystring: { optimize?: string } }>('/', { preHandler: fastify.authenticate }, async (req, reply) => {
+    const optimize = req.query.optimize === 'true';
     const owner = req.entry;
     if (!owner) {
       return reply.code(401).send({ error: 'This endpoint requires authorization.' });
@@ -122,25 +125,42 @@ const upload: FastifyPluginAsync = async (fastify) => {
 
     const baseName = sanitizeBaseName(path.basename(result.originalName, path.extname(result.originalName)));
 
+    let finalTempPath = result.tempPath;
+    let finalSizeBytes = result.sizeBytes;
+    let finalExtension = extension;
+
+    if (optimize && type === 'IMAGE') {
+      const optimizedPath = path.join(TMP_DIR, `${randomUUID()}.opt.webp`);
+      const optimized = await optimizeImage(result.tempPath, optimizedPath, extension);
+
+      if (optimized) {
+        await fs.rm(result.tempPath, { force: true });
+        finalTempPath = optimizedPath;
+        finalSizeBytes = (await fs.stat(optimizedPath)).size;
+        finalExtension = 'webp';
+      }
+      // else: sharp couldn't handle this format — fall back to the original upload.
+    }
+
     const asset = await fastify.prisma.asset.create({
       data: {
         filename: baseName,
-        extension,
-        sizeBytes: result.sizeBytes,
+        extension: finalExtension,
+        sizeBytes: finalSizeBytes,
         type,
         ownerId: owner.id,
       },
     });
 
     const destDir = path.join(UPLOAD_ROOT, owner.id);
-    const destPath = path.join(destDir, `${asset.id}.${extension}`);
+    const destPath = path.join(destDir, `${asset.id}.${finalExtension}`);
 
     try {
       await fs.mkdir(destDir, { recursive: true });
-      await fs.rename(result.tempPath, destPath);
+      await fs.rename(finalTempPath, destPath);
     } catch (err) {
       await fastify.prisma.asset.delete({ where: { id: asset.id } }).catch(() => {});
-      await fs.rm(result.tempPath, { force: true });
+      await fs.rm(finalTempPath, { force: true });
       fastify.log.error(err);
       return reply.code(500).send({ error: 'Failed to store upload.' });
     }
@@ -151,7 +171,7 @@ const upload: FastifyPluginAsync = async (fastify) => {
       extension: asset.extension,
       sizeBytes: asset.sizeBytes,
       type: asset.type,
-      url: `/view/${owner.id}/${asset.id}.${extension}`,
+      url: `/view/${owner.id}/${asset.id}.${asset.extension}`,
     });
   });
 };
