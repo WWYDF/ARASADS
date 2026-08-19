@@ -1,6 +1,9 @@
+import { appLogger } from '../plugins/logger';
 import { FastifyPluginAsync } from 'fastify';
 import staticPlugin from '@fastify/static';
 import path from 'path';
+
+const logger = appLogger('Routes');
 
 const registerStatic: FastifyPluginAsync = async (fastify) => {
   fastify.register(staticPlugin, {
@@ -11,6 +14,8 @@ const registerStatic: FastifyPluginAsync = async (fastify) => {
       res.header('Cache-Control', 'public, max-age=10800, immutable');
     },
   });
+
+  logger.info('[+] Static Route Initialized!');
 };
 
 export default registerStatic;

@@ -2,3 +2,4 @@
 .env
 /dist
 /prisma/client
+/data

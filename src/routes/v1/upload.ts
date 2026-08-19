@@ -7,9 +7,8 @@ import path from 'path';
 import type { MediaType } from '../../../prisma/client';
 import { isImageMimeType, optimizeImage } from '../../core/images';
 import { isVideoMimeType } from '../../core/videos';
+import { TMP_DIR, UPLOAD_ROOT } from '../../core/constants';
 
-const UPLOAD_ROOT = path.resolve(process.cwd(), 'data/uploads');
-const TMP_DIR = path.resolve(process.cwd(), 'data/tmp');
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_MB || 200) * 1024 * 1024;
 
 function mediaTypeFor(mimeType: string, extension: string): MediaType | null {
