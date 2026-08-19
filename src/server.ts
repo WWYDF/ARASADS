@@ -5,6 +5,7 @@ import registerStatic from './plugins/static';
 import chalk from 'chalk';
 import fastifyJWT from '@fastify/jwt';
 import cors from '@fastify/cors'
+import v1Routes from './routes/v1';
 
 const fastify = Fastify({
   logger: {
@@ -73,11 +74,12 @@ const start = async () => {
     await fastify.register(routeLogger);
     await fastify.register(prismaPlugin);
     await fastify.register(registerStatic);
+    await fastify.register(v1Routes, { prefix: '/v1' });
 
     // Health check route
     fastify.get('/health', async () => ({ ok: true }));
 
-    const PORT = Number(process.env.SERVER_PORT || 12240);
+    const PORT = Number(process.env.SERVER_PORT || 12290);
 
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     console.log('');

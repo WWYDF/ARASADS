@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  TEXT
+  MARKDOWN
+}
+
+model User {
+  id                    String                  @id @default(uuid())
+  username              String                  @unique
+  passHash              String
+  uploads               Asset[]
+}
+
+
+model Asset {
+  id                    String                  @id @default(cuid())
+  filename              String                  // without extension
+  extension             String                  // no dot
+  sizeBytes             Int
+  type                  MediaType
+
+  ownerId               String
+  owner                 User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  lastUpdated           DateTime                @updatedAt
+  createdAt             DateTime                @default(now())
+}
